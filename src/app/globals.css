@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Brand palette (AiTek Solutions logo):
+     orange  #F7941D  ~ hsl(31 94% 54%)
+     charcoal-navy    ~ hsl(230 22% 9%)
+     gray    #8c8c8c  ~ hsl(0 0% 55%) */
+  :root {
+    /* Light theme (used only as a fallback — app is dark by default) */
+    --background: 0 0% 100%;
+    --foreground: 230 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 25% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 12%;
+    --primary: 31 94% 52%;             /* AiTek orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225 20% 96%;
+    --secondary-foreground: 230 25% 12%;
+    --muted: 225 20% 96%;
+    --muted-foreground: 225 8% 45%;
+    --accent: 31 90% 96%;
+    --accent-foreground: 31 80% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 95% 50%;
+    --warning-foreground: 230 25% 12%;
+    --border: 225 18% 90%;
+    --input: 225 18% 90%;
+    --ring: 31 94% 52%;
+    --radius: 0.6rem;
+  }
+
+  /* Dark theme — charcoal-navy background, white text, AiTek-orange accents */
+  .dark {
+    --background: 230 22% 9%;          /* charcoal-navy (matches logo dark) */
+    --foreground: 210 20% 98%;         /* near-white */
+    --card: 230 20% 12%;               /* lighter charcoal panels */
+    --card-foreground: 210 20% 98%;
+    --popover: 230 20% 12%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 31 96% 55%;             /* AiTek orange */
+    --primary-foreground: 230 25% 9%;  /* dark text on orange */
+    --secondary: 230 16% 18%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 230 16% 18%;
+    --muted-foreground: 225 10% 64%;   /* logo gray */
+    --accent: 30 45% 20%;              /* muted orange tint */
+    --accent-foreground: 31 96% 72%;
+    --destructive: 0 72% 51%;          /* red — overdue */
+    --destructive-foreground: 210 20% 98%;
+    --success: 142 70% 45%;            /* green — paid */
+    --success-foreground: 230 25% 9%;
+    --warning: 45 95% 55%;             /* amber-yellow — pending (distinct from orange) */
+    --warning-foreground: 230 25% 9%;
+    --border: 230 16% 20%;
+    --input: 230 16% 20%;
+    --ring: 31 96% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom scrollbar for the dark theme */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+}
