@@ -8,8 +8,19 @@ async function main() {
   const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@aitek-solutions.com")
     .toLowerCase()
     .trim();
-  const password = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe!123";
   const name = process.env.SEED_ADMIN_NAME ?? "Aitek Admin";
+
+  // In production, refuse to seed with the well-known default password.
+  const DEFAULT_PASSWORD = "ChangeMe!123";
+  const isProd = process.env.NODE_ENV === "production";
+  const envPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (isProd && (!envPassword || envPassword === DEFAULT_PASSWORD)) {
+    throw new Error(
+      "Refusing to seed in production without a strong SEED_ADMIN_PASSWORD " +
+        "(the default is not allowed). Set SEED_ADMIN_PASSWORD to a unique value."
+    );
+  }
+  const password = envPassword ?? DEFAULT_PASSWORD;
 
   const hashed = await bcrypt.hash(password, 12);
   const admin = await prisma.admin.upsert({
@@ -106,7 +117,11 @@ async function main() {
   console.log(`✔ Demo client ready with ${recurring.length} recurring services`);
 
   console.log("\n🎉 Seed complete.");
-  console.log(`   Login: ${email} / ${password}`);
+  if (isProd) {
+    console.log(`   Admin: ${email} (password set from SEED_ADMIN_PASSWORD)`);
+  } else {
+    console.log(`   Login: ${email} / ${password}`);
+  }
 }
 
 main()

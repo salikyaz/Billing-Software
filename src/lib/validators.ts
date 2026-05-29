@@ -48,7 +48,14 @@ export const settingsSchema = z.object({
   companyEmail: z.string().email().optional().nullable().or(z.literal("")),
   companyAddress: z.string().optional().nullable(),
   companyPhone: z.string().optional().nullable(),
-  logoUrl: z.string().optional().nullable(),
+  logoUrl: z
+    .string()
+    .refine(
+      (v) => v === "" || v.startsWith("/") || /^https:\/\//i.test(v),
+      "Logo URL must be a root-relative path or an https:// URL"
+    )
+    .optional()
+    .nullable(),
   taxRate: z.coerce.number().min(0).max(100).optional(),
   defaultCurrency: z.string().optional(),
   billingDay: z.coerce.number().int().min(1).max(28).optional(),
@@ -56,14 +63,19 @@ export const settingsSchema = z.object({
   invoiceNumberPrefix: z.string().optional(),
   msClientId: z.string().optional().nullable(),
   msTenantId: z.string().optional().nullable(),
-  msClientSecret: z.string().optional().nullable(),
   sharedMailbox: z.string().optional().nullable().or(z.literal("")),
-  stripeSecretKey: z.string().optional().nullable(),
   stripePublishableKey: z.string().optional().nullable(),
+  twoFactorEnabled: z.boolean().optional(),
 });
 export type SettingsInput = z.infer<typeof settingsSchema>;
 
 export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  code: z.string().optional(),
+});
+
+export const twoFactorRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });

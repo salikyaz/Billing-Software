@@ -135,6 +135,10 @@ export function passwordResetSubject(companyName: string): string {
   return `Reset your ${companyName} admin password`;
 }
 
+export function twoFactorSubject(companyName: string): string {
+  return `Your ${companyName} login code`;
+}
+
 // ---------------------------------------------------------------------------
 // Invoice email
 // ---------------------------------------------------------------------------
@@ -330,6 +334,46 @@ export function passwordResetHtml(data: {
   return layout({
     companyName: data.companyName,
     heading: "Password Reset",
+    bodyRows,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Two-factor login code email
+// ---------------------------------------------------------------------------
+
+export function twoFactorCodeHtml(data: {
+  companyName: string;
+  name: string;
+  code: string;
+  expiresInMinutes: number;
+}): string {
+  const bodyRows = `
+    <tr><td style="padding-bottom:8px;">
+      Hi ${escapeHtml(data.name)},
+    </td></tr>
+    <tr><td style="padding-bottom:16px;color:${COLORS.muted};">
+      Use the code below to finish signing in to your
+      <strong>${escapeHtml(data.companyName)}</strong> admin account. It expires
+      in <strong>${data.expiresInMinutes} minutes</strong>.
+    </td></tr>
+    <tr>
+      <td align="center" style="padding:8px 0 24px;">
+        <div style="display:inline-block;background:${COLORS.bg};border:1px solid ${COLORS.border};
+                    border-radius:10px;padding:18px 28px;font-family:'Courier New',monospace;
+                    font-size:34px;font-weight:700;letter-spacing:10px;color:${COLORS.text};">
+          ${escapeHtml(data.code)}
+        </div>
+      </td>
+    </tr>
+    <tr><td style="color:${COLORS.muted};font-size:13px;">
+      If you didn't try to sign in, someone may have your password — change it
+      as soon as possible.
+    </td></tr>`;
+
+  return layout({
+    companyName: data.companyName,
+    heading: "Your login code",
     bodyRows,
   });
 }

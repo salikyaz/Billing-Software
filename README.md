@@ -8,7 +8,7 @@ Built with **Next.js 14 (App Router) · TypeScript · PostgreSQL + Prisma · Tai
 
 ## Features
 
-- 🔐 **Secure admin login** (NextAuth credentials, JWT sessions, bcrypt-hashed passwords)
+- 🔐 **Secure admin login** (NextAuth credentials, JWT sessions, bcrypt-hashed passwords) with optional **email two-factor authentication** and a password-reset flow
 - 📊 **Dashboard** — revenue this month, pending/overdue/paid stats, 6-month revenue chart, recent invoices
 - 👥 **Clients** — full CRUD, profiles with invoice & payment history, recurring service assignments, soft-deactivation
 - 🧾 **Invoices** — manual builder with line items, live tax/total calc, preview, draft → send workflow, status timeline, PDF download, reminders
@@ -57,7 +57,7 @@ Fill in `.env` (all variables are documented inline in `.env.example`):
 | `CRON_SECRET` | Shared secret protecting `/api/cron/*` |
 | `SEED_ADMIN_*` | Initial admin account (seed script) |
 
-> Credentials for Stripe and Microsoft Graph can also be entered/overridden later in the in-app **Settings** page — DB values take precedence over env vars.
+> **Secrets are environment-only.** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `MICROSOFT_CLIENT_SECRET` are read solely from env vars and are **never stored in the database or editable in the UI**. The in-app **Settings** page manages only non-secret config (company info, tax/billing options, mailbox address, Microsoft client/tenant ID, Stripe publishable key, and the 2FA toggle).
 
 Then create the database schema:
 
@@ -162,7 +162,7 @@ Useful scripts: `npm run db:studio` (Prisma Studio), `npm run typecheck`, `npm r
   }
   ```
   Protect the endpoints by sending the `CRON_SECRET` (Vercel Cron can be paired with a secret header, or verify the `x-vercel-cron` header). The routes require `Authorization: Bearer <CRON_SECRET>` or `x-cron-secret`.
-- **Always-on host** (a VPS, container, or worker dyno): run `npm run cron` as a long-lived process (e.g. under `pm2` or systemd).
+- **Always-on host** (a VPS, container, or worker dyno): use the provided **`ecosystem.config.js`** with PM2 — `pm2 start ecosystem.config.js` runs both `aitek-web` and `aitek-cron`. The web app is pinned to a single instance on purpose (the in-memory rate limiter is per-process); use Redis-backed limiting before scaling out.
 
 > Alternative app hosting (Docker / Node server): `npm run build && npm run start`. Ensure `prisma migrate deploy` runs against the production database before first boot.
 
@@ -205,7 +205,11 @@ Two models extend the original spec to support its requirements:
 
 ## Security notes
 
-- All `/api/*` routes (except `auth`, `webhooks/stripe`, and `cron/*`) require an authenticated admin session.
-- `cron/*` routes require the `CRON_SECRET`; the Stripe webhook verifies the Stripe signature.
-- Credential secret fields are write-only in the UI (masked on read; blank submissions preserve existing values).
-- `npm audit` reports some advisories from transitive dev dependencies — review before production and run `npm audit` to inspect.
+- **Authentication**: NextAuth credentials (bcrypt cost 12, JWT sessions capped at 8h). All `/api/*` routes except `auth`, `webhooks/stripe`, and `cron/*` require an authenticated admin session; `cron/*` requires the `CRON_SECRET` (constant-time compare); the Stripe webhook verifies the Stripe signature and fails closed if the secret is unset.
+- **Secrets are env-only**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `MICROSOFT_CLIENT_SECRET` live only in environment variables — never the DB or UI. `GET /api/settings` returns only `configured` booleans, never secret values.
+- **Optional email 2FA** for admin login (toggle in Settings → Security): after a correct password, a 6-digit code is emailed; codes are hashed at rest, single-use, expire in 10 min, and are invalidated after 5 wrong guesses. ⚠ Configure email (Microsoft Graph) **before** enabling 2FA, or codes can't be delivered.
+- **Password reset** tokens are 256-bit, hashed at rest (SHA-256), single-use, expire in 60 min, and the endpoint avoids user enumeration.
+- **Rate limiting** on login, 2FA requests, and password reset (in-memory). It is per-process: run the web app as a **single PM2 instance** (see `ecosystem.config.js`) or move the limiter to Redis before scaling to multiple workers.
+- **HTTP security headers** (CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS) are set in `next.config.mjs`; `'unsafe-eval'` is dev-only. `X-Powered-By` is disabled.
+- **Operational**: never expose `prisma studio` on the production host; serve only over HTTPS so secure cookies + HSTS engage; set a strong unique `SEED_ADMIN_PASSWORD` (the seed refuses the default in production) and change it after first login.
+- **Dependencies**: keep Next.js patched. As of this writing the app pins the latest **Next 14.2.x** (includes the middleware auth-bypass fix). Remaining `npm audit` "high" items are App-Router DoS/SSRF advisories fixed only in **Next 15.x** (a major upgrade — plan and test separately) plus dev-only tooling (`glob`/`eslint`) that never ships to runtime.

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { timingSafeEqualStr } from "@/lib/crypto";
 
 /** Standard JSON error response. */
 export function errorResponse(message: string, status = 400, details?: unknown) {
@@ -66,12 +67,13 @@ export async function handleRoute<T>(
   }
 }
 
-/** Verify the cron shared-secret on cron API routes. */
+/** Verify the cron shared-secret on cron API routes (constant-time compare). */
 export function verifyCronSecret(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   const header =
     req.headers.get("authorization") ?? req.headers.get("x-cron-secret") ?? "";
   const token = header.replace(/^Bearer\s+/i, "");
-  return token === secret;
+  if (!token) return false;
+  return timingSafeEqualStr(token, secret);
 }

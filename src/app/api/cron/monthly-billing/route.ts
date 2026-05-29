@@ -14,6 +14,6 @@ export async function POST(req: Request): Promise<NextResponse> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[cron/monthly-billing] failed:", message);
-    return errorResponse(message, 500);
+    return errorResponse("Monthly billing job failed", 500);
   }
 }

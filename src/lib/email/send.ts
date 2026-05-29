@@ -16,6 +16,8 @@ import {
   paymentReceivedSubject,
   reminderHtml,
   reminderSubject,
+  twoFactorCodeHtml,
+  twoFactorSubject,
 } from "@/lib/email/templates";
 import { EmailStatus, InvoiceStatus, NotificationType } from "@prisma/client";
 
@@ -254,6 +256,42 @@ export async function sendPasswordResetEmail(opts: {
       errorMessage: message,
     });
     throw new Error(`Failed to send password reset email: ${message}`);
+  }
+
+  await logEmail({
+    recipientEmail: opts.email,
+    subject,
+    status: EmailStatus.SUCCESS,
+  });
+}
+
+/** Send an admin 2FA login code. Logs the attempt and rethrows on failure. */
+export async function sendTwoFactorCode(opts: {
+  email: string;
+  name: string;
+  code: string;
+  expiresInMinutes: number;
+}): Promise<void> {
+  const settings = await getSettings();
+  const subject = twoFactorSubject(settings.companyName);
+  const html = twoFactorCodeHtml({
+    companyName: settings.companyName,
+    name: opts.name,
+    code: opts.code,
+    expiresInMinutes: opts.expiresInMinutes,
+  });
+
+  try {
+    await sendMailViaGraph({ to: opts.email, subject, html });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await logEmail({
+      recipientEmail: opts.email,
+      subject,
+      status: EmailStatus.FAILED,
+      errorMessage: message,
+    });
+    throw new Error(`Failed to send 2FA code: ${message}`);
   }
 
   await logEmail({

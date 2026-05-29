@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/fetcher";
 import type { Settings } from "@/types/api";
@@ -44,10 +45,9 @@ type Form = {
   invoiceNumberPrefix: string;
   msClientId: string;
   msTenantId: string;
-  msClientSecret: string;
   sharedMailbox: string;
   stripePublishableKey: string;
-  stripeSecretKey: string;
+  twoFactorEnabled: boolean;
 };
 
 export default function SettingsPage() {
@@ -71,10 +71,9 @@ export default function SettingsPage() {
       invoiceNumberPrefix: s.invoiceNumberPrefix ?? "INV",
       msClientId: s.msClientId ?? "",
       msTenantId: s.msTenantId ?? "",
-      msClientSecret: "",
       sharedMailbox: s.sharedMailbox ?? "",
       stripePublishableKey: s.stripePublishableKey ?? "",
-      stripeSecretKey: "",
+      twoFactorEnabled: s.twoFactorEnabled ?? false,
     });
   }
 
@@ -108,10 +107,8 @@ export default function SettingsPage() {
         msTenantId: form.msTenantId,
         sharedMailbox: form.sharedMailbox,
         stripePublishableKey: form.stripePublishableKey,
+        twoFactorEnabled: form.twoFactorEnabled,
       };
-      // Only send secrets when provided (blank preserves existing).
-      if (form.msClientSecret) payload.msClientSecret = form.msClientSecret;
-      if (form.stripeSecretKey) payload.stripeSecretKey = form.stripeSecretKey;
 
       const updated = await api<Settings>("/api/settings", {
         method: "PUT",
@@ -147,6 +144,7 @@ export default function SettingsPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="stripe">Stripe</TabsTrigger>
         </TabsList>
@@ -287,14 +285,6 @@ export default function SettingsPage() {
                   onChange={(e) => set("msTenantId", e.target.value)}
                 />
               </Field>
-              <Field label="Client secret">
-                <Input
-                  type="password"
-                  placeholder="•••• leave blank to keep"
-                  value={form.msClientSecret}
-                  onChange={(e) => set("msClientSecret", e.target.value)}
-                />
-              </Field>
               <Field label="Shared mailbox">
                 <Input
                   value={form.sharedMailbox}
@@ -302,6 +292,9 @@ export default function SettingsPage() {
                   placeholder="billing@aitek-solutions.com"
                 />
               </Field>
+              <div className="sm:col-span-2">
+                <EnvNote varName="MICROSOFT_CLIENT_SECRET" label="Client secret" />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -327,14 +320,48 @@ export default function SettingsPage() {
                   placeholder="pk_live_…"
                 />
               </Field>
-              <Field label="Secret key">
-                <Input
-                  type="password"
-                  placeholder="•••• leave blank to keep"
-                  value={form.stripeSecretKey}
-                  onChange={(e) => set("stripeSecretKey", e.target.value)}
+              <div className="sm:col-span-2">
+                <EnvNote varName="STRIPE_SECRET_KEY" label="Secret key" />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <Card>
+            <CardHeader>
+              <CardTitle>Security</CardTitle>
+              <CardDescription>
+                Protect access to the admin dashboard.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    <Label htmlFor="2fa" className="text-sm font-medium">
+                      Email two-factor authentication
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, signing in requires a 6-digit code sent to the
+                    admin&apos;s email after the password is verified.
+                  </p>
+                  {form.twoFactorEnabled && !settings?.configured.graph && (
+                    <p className="text-sm text-warning">
+                      ⚠ Email (Microsoft Graph) is not configured — codes
+                      can&apos;t be delivered, which may lock you out. Configure
+                      email before relying on 2FA.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  id="2fa"
+                  checked={form.twoFactorEnabled}
+                  onCheckedChange={(v) => set("twoFactorEnabled", v)}
                 />
-              </Field>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -360,6 +387,20 @@ function Field({
     <div className="space-y-2">
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function EnvNote({ varName, label }: { varName: string; label: string }) {
+  return (
+    <div className="rounded-lg border border-dashed bg-muted/40 p-3 text-sm text-muted-foreground">
+      <span className="font-medium text-foreground">{label}</span> is a secret
+      and is managed only via the{" "}
+      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+        {varName}
+      </code>{" "}
+      environment variable on the server — it is never stored in the database or
+      editable here.
     </div>
   );
 }

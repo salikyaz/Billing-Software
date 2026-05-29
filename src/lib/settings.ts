@@ -25,24 +25,23 @@ export async function getSettings(): Promise<Settings> {
 }
 
 /**
- * Resolved Microsoft Graph credentials. DB settings take precedence,
- * falling back to environment variables.
+ * Resolved Microsoft Graph credentials. Non-secret config (client/tenant id,
+ * mailbox) comes from the DB with an env fallback; the client SECRET is read
+ * ONLY from the MICROSOFT_CLIENT_SECRET env var and is never stored in the DB.
  */
 export async function getGraphConfig(settings?: Settings) {
   const s = settings ?? (await getSettings());
   return {
     clientId: s.msClientId ?? process.env.MICROSOFT_CLIENT_ID ?? "",
     tenantId: s.msTenantId ?? process.env.MICROSOFT_TENANT_ID ?? "",
-    clientSecret: s.msClientSecret ?? process.env.MICROSOFT_CLIENT_SECRET ?? "",
-    sharedMailbox:
-      s.sharedMailbox ?? process.env.SHARED_MAILBOX_ADDRESS ?? "",
+    clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? "", // env-only
+    sharedMailbox: s.sharedMailbox ?? process.env.SHARED_MAILBOX_ADDRESS ?? "",
   };
 }
 
-/** Resolved Stripe secret key (DB first, then env). */
-export async function getStripeSecretKey(settings?: Settings): Promise<string> {
-  const s = settings ?? (await getSettings());
-  return s.stripeSecretKey ?? process.env.STRIPE_SECRET_KEY ?? "";
+/** Resolved Stripe secret key — read ONLY from the STRIPE_SECRET_KEY env var. */
+export async function getStripeSecretKey(): Promise<string> {
+  return process.env.STRIPE_SECRET_KEY ?? "";
 }
 
 export function getTaxRate(settings: Settings): number {
@@ -56,7 +55,7 @@ export function getTaxRate(settings: Settings): number {
  */
 export async function assertSendReady(): Promise<void> {
   const settings = await getSettings();
-  const stripeKey = await getStripeSecretKey(settings);
+  const stripeKey = await getStripeSecretKey();
   const graph = await getGraphConfig(settings);
 
   const missing: string[] = [];

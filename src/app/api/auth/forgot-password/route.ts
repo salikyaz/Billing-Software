@@ -1,33 +1,38 @@
-import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { handleRoute } from "@/lib/api";
+import { ApiError, handleRoute } from "@/lib/api";
 import { forgotPasswordSchema } from "@/lib/validators";
 import { sendPasswordResetEmail } from "@/lib/email/send";
+import { sha256, randomToken } from "@/lib/crypto";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const EXPIRY_MINUTES = 60;
 
-function hashToken(raw: string): string {
-  return crypto.createHash("sha256").update(raw).digest("hex");
-}
-
 export async function POST(req: Request) {
   return handleRoute(async () => {
-    const { email } = forgotPasswordSchema.parse(await req.json());
-    const admin = await prisma.admin.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    });
+    const { email: rawEmail } = forgotPasswordSchema.parse(await req.json());
+    const email = rawEmail.toLowerCase().trim();
+
+    const limit = rateLimit(`forgot:${email}`, 5, 60 * 60 * 1000);
+    if (!limit.allowed) {
+      throw new ApiError(
+        `Too many requests. Try again in ${limit.retryAfterSeconds}s.`,
+        429
+      );
+    }
+
+    const admin = await prisma.admin.findUnique({ where: { email } });
 
     // Always behave the same way regardless of whether the account exists,
     // to avoid leaking which emails are registered.
     if (admin) {
-      const rawToken = crypto.randomBytes(32).toString("hex");
+      const rawToken = randomToken(32);
       const expiry = new Date(Date.now() + EXPIRY_MINUTES * 60 * 1000);
 
       await prisma.admin.update({
         where: { id: admin.id },
-        data: { resetTokenHash: hashToken(rawToken), resetTokenExpiry: expiry },
+        data: { resetTokenHash: sha256(rawToken), resetTokenExpiry: expiry },
       });
 
       const base = (

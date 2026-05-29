@@ -48,6 +48,11 @@ model Admin {
   // Password reset (forgot-password flow)
   resetTokenHash   String? // sha256 hash of the emailed token
   resetTokenExpiry DateTime?
+
+  // Email 2FA login challenge
+  twoFactorCodeHash    String? // sha256 hash of the emailed 6-digit code
+  twoFactorCodeExpiry  DateTime?
+  twoFactorAttempts    Int       @default(0) // failed code guesses for the active code
 }
 
 model Client {
@@ -191,16 +196,18 @@ model Settings {
   reminderAfterDays Int    @default(7) // days overdue before a reminder is sent
   invoiceNumberPrefix String @default("INV")
 
-  // Microsoft Graph (Outlook shared inbox). Secrets fall back to env vars
-  // when null so they don't have to be stored in the DB.
-  msClientId       String?
-  msTenantId       String?
-  msClientSecret   String?
-  sharedMailbox    String?
+  // Microsoft Graph (Outlook shared inbox). NON-SECRET config only — the
+  // client SECRET lives in the MICROSOFT_CLIENT_SECRET env var, never the DB.
+  msClientId    String?
+  msTenantId    String?
+  sharedMailbox String?
 
-  // Stripe. Secrets fall back to env vars when null.
-  stripeSecretKey      String?
+  // Stripe. The secret key lives in the STRIPE_SECRET_KEY env var, never the
+  // DB. The publishable key is public by design.
   stripePublishableKey String?
+
+  // Security
+  twoFactorEnabled Boolean @default(false) // require email 2FA on admin login
 
   updatedAt DateTime @updatedAt @default(now())
 }

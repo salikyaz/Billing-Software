@@ -145,10 +145,9 @@ export interface Settings {
   invoiceNumberPrefix: string;
   msClientId: string | null;
   msTenantId: string | null;
-  msClientSecret: string;
   sharedMailbox: string | null;
-  stripeSecretKey: string;
   stripePublishableKey: string | null;
+  twoFactorEnabled: boolean;
   updatedAt: string;
   configured: {
     stripe: boolean;
